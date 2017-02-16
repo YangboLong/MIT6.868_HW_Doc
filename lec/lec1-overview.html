@@ -1,0 +1,198 @@
+<h1>6.828 2016 L1: O/S overview</h1>
+
+<h2>Overview</h2>
+
+<ul>
+<li><p>6.828 goals</p>
+
+<ul>
+<li>Understand operating systems in detail by designing and implementing a small
+O/S</li>
+<li>Hands-on experience with building systems  ("Applying 6.033")</li>
+</ul></li>
+<li><p>What do applications want from an O/S?</p>
+
+<ul>
+<li>Abstract the hardware for convenience and portability</li>
+<li>Multiplex the hardware among multiple applications</li>
+<li>Isolate applications to contain bugs</li>
+<li>Allow sharing among applications</li>
+</ul></li>
+<li><p>What is an OS?</p>
+
+<ul>
+<li>e.g. OSX, Windows, Linux</li>
+<li>the small view: a h/w management library</li>
+<li>the big view: physical machine -> abstract one w/ better properties</li>
+</ul></li>
+<li><p>Organization: layered picture
+h/w: CPU, mem, disk
+kernel: [various services]
+user: applications, e.g. vi and gcc</p>
+
+<ul>
+<li>we care a lot about the interfaces and internal kernel structure</li>
+</ul></li>
+<li><p>What services does an O/S kernel typically provide?</p>
+
+<ul>
+<li>processes</li>
+<li>memory</li>
+<li>file contents</li>
+<li>directories and file names</li>
+<li>security</li>
+<li>many others: users, IPC, network, time, terminals</li>
+</ul></li>
+<li><p>What does an O/S abstraction look like?</p>
+
+<ul>
+<li>Applications see them only via system calls</li>
+<li><p>Examples, from UNIX / Linux:</p>
+
+<pre><code>fd = open("out", 1);
+write(fd, "hello\n", 6);
+pid = fork();
+</code></pre></li>
+</ul></li>
+<li><p>Why is O/S design/implementation hard/interesting?</p>
+
+<ul>
+<li>the environment is unforgiving: weird h/w, no debugger</li>
+<li>it must be efficient (thus low-level?)
+...but abstract/portable (thus high-level?)</li>
+<li>powerful (thus many features?)
+...but simple (thus a few composable building blocks?)</li>
+<li>features interact: <code>fd = open(); ...; fork()</code></li>
+<li>behaviors interact: CPU priority vs memory allocator.</li>
+<li>open problems: security, multi-core</li>
+</ul></li>
+<li><p>You'll be glad you learned about operating systems if you...</p>
+
+<ul>
+<li>want to work on the above problems</li>
+<li>care about what's going on under the hood</li>
+<li>have to build high-performance systems</li>
+<li>need to diagnose bugs or security problems</li>
+</ul></li>
+</ul>
+
+<h2>Class structure</h2>
+
+<ul>
+<li><p>See web site: https://pdos.csail.mit.edu/6.828</p></li>
+<li><p>Lectures</p>
+
+<ul>
+<li>basic O/S ideas</li>
+<li>extended inspection of xv6, a traditional O/S</li>
+<li>several more recent topics</li>
+<li>xv6 programming to re-inforce xv6 understanding</li>
+</ul></li>
+<li><p>Lab: JOS, a small O/S for x86 in an exokernel style</p>
+
+<ul>
+<li>you build it, 5 labs + final lab of your choice</li>
+<li>kernel interface: expose hardware, but protect -- no abstractions!</li>
+<li>unprivileged library: fork, exec, pipe, ...</li>
+<li>applications: file system, shell, ..</li>
+<li>development environment: gcc, qemu</li>
+<li>lab 1 is out</li>
+<li>make grade</li>
+</ul></li>
+<li><p>Code review</p></li>
+<li><p>Two quizzes: one in class hours, one in final's week</p></li>
+</ul>
+
+<h2>Example system calls</h2>
+
+<ul>
+<li><p>6.828 is largely about design and implementation of system call
+interface. let's start by looking at how programs use that interface.</p></li>
+<li><p>a simple example: what system calls does "ls" call?</p>
+
+<ul>
+<li>Trace system calls:</li>
+<li>On OSX: sudo dtruss /bin/ls</li>
+<li>On Linux: strace /bin/ls</li>
+</ul></li>
+</ul>
+
+<!-- 
+  Demo:
+  - strace -- ls
+  -->
+
+<ul>
+<li><p>simpler program: echo</p>
+
+<ul>
+<li><p>what are file descriptors? (0, 1, 2, etc. in read/write)
+<a href="l-overview/echo.c">echo.c</a></p></li>
+<li><p>what if want to redirect i/o to a file?
+<a href="l-overview/redirect.c">echo.c</a></p></li>
+</ul></li>
+<li><p>a more interesting program: the Unix shell.</p>
+
+<ul>
+<li>shell is the Unix command UI</li>
+<li>typically handles login session, runs other processes</li>
+<li>you saw it in 6.033: http://web.mit.edu/6.033/www/assignments/handson-unix.html</li>
+<li>the shell is also a programming/scripting language</li>
+<li>look at some simple examples of shell operations, how they use different O/S
+abstractions, and how those abstractions fit together.  See
+<a href="../readings/ritchie78unix.pdf">Unix paper</a> if you are unfamiliar with the
+shell.</li>
+</ul></li>
+<li><p><a href="../homework/sh.c">Simplified xv6 sh.c</a></p>
+
+<ul>
+<li>See <a href="../xv6/book-rev9.pdf">chapter 0 of xv6 book</a></li>
+<li>Basic organization: parsing and executing commands (e.g., ls, ls | wc, ls > out)</li>
+<li>Shell implemented using system calls (e.g., read, write, fork, exec, wait)
+conventions: -1 return value signals error,
+error code stored in <code>errno</code>,
+<code>perror</code> prints out a descriptive error
+message based on <code>errno</code>.</li>
+<li>Many systems calls are encapsulated in libc calls (e.g., fgets vs read)</li>
+</ul></li>
+</ul>
+
+<!-- 
+  Demo:
+  - open sh.c in emacs
+  - look at main()
+  - look at runcmd()
+  - look at fgets()
+  - man 3 fgets()
+  -->
+
+<ul>
+<li>what does fork() do?
+copies user memory
+copies process kernel state (e.g. user id)
+child gets a different PID
+child state contains parent PID
+returns twice, with different values</li>
+<li>parent and child may run concurrently (e.g., on different processors).</li>
+<li><p>what does wait() do?
+waits for any child to exit
+what if child exits before parent calls wait?</p></li>
+<li><p>how to execute echo?</p>
+
+<pre><code> if (execv(ecmd-&gt;argv[0], ecmd-&gt;argv) == -1) {
+   perror("exec failed");
+   exit(-1);
+ }
+</code></pre></li>
+<li><p>how to do I/O redirection (i.e., >)</p>
+
+<pre><code> close(rcmd-&gt;fd);
+ if(open(rcmd-&gt;file, rcmd-&gt;mode, S_IRWXU) &lt; 0) {
+   perror("open failed\n");
+   exit(-1);
+ }
+</code></pre>
+
+<p>cool: echo doesn't need to be changed at all!</p></li>
+<li><p>Homework assignment for <a href="../homework/xv6-shell.html">shell</a> </p></li>
+</ul>
