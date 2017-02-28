@@ -1,0 +1,121 @@
+Part One: System call tracing
+The name of each system call can be printed by checking the num/index of syscalls and printing the corresponding function name. The value of a system call's result was saved in proc->tf->eax.
+
+void
+syscall(void)
+{
+  int num;
+
+  num = proc->tf->eax;
+  if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
+    proc->tf->eax = syscalls[num]();
+    switch (num) {
+    case SYS_fork:
+      cprintf("fork -> ");
+      break;
+    case SYS_exit:
+      cprintf("exit -> ");
+      break;
+    case SYS_wait:
+      cprintf("wait -> ");
+      break;
+    case SYS_pipe:
+      cprintf("pipe -> ");
+      break;
+    case SYS_read:
+      cprintf("read -> ");
+      break;
+    case SYS_kill:
+      cprintf("kill -> ");
+      break;
+    case SYS_exec:
+      cprintf("exec -> ");
+      break;
+    case SYS_fstat:
+      cprintf("fstat -> ");
+      break;
+    case SYS_chdir:
+      cprintf("chdir -> ");
+      break;
+    case SYS_dup:
+      cprintf("dup -> ");
+      break;
+    case SYS_getpid:
+      cprintf("getpid -> ");
+      break;
+    case SYS_sbrk:
+      cprintf("sbrk -> ");
+      break;
+    case SYS_sleep:
+      cprintf("sleep -> ");
+      break;
+    case SYS_uptime:
+      cprintf("uptime -> ");
+      break;
+    case SYS_open:
+      cprintf("open -> ");
+      break;
+    case SYS_write:
+      cprintf("write -> ");
+      break;
+    case SYS_mknod:
+      cprintf("mknod -> ");
+      break;
+    case SYS_unlink:
+      cprintf("unlink -> ");
+      break;
+    case SYS_link:
+      cprintf("link -> ");
+      break;
+    case SYS_mkdir:
+      cprintf("mkdir -> ");
+      break;
+    case SYS_close:
+      cprintf("close -> ");
+      break;
+    default:
+      panic("wrong syscall.\n");
+    }
+    cprintf("%d\n", proc->tf->eax);
+  } else {
+    cprintf("%d %s: unknown sys call %d\n",
+            proc->pid, proc->name, num);
+    proc->tf->eax = -1;
+  }
+}
+
+Part Two: Date system call
+Grep for an existing system call "uptime" in all the source files and follow a similar way to add the "date" system call.
+$ grep -n uptime *.[chS]
+syscall.c:100:extern int sys_uptime(void);
+syscall.c:117:[SYS_uptime]  sys_uptime,
+syscall.c:176:    // case SYS_uptime:
+syscall.c:177:    //   cprintf("uptime -> ");
+syscall.h:15:#define SYS_uptime 14
+sysproc.c:83:sys_uptime(void)
+user.h:25:int uptime(void);
+usys.S:31:SYSCALL(uptime)
+
+The file date.c contains the user space code that calls the date() system call. The main() function in date.c indicates that it gets compiled into its own binary and executes in its own process via fork() when a "date" command is issued in the xv6 shell prompt. The interface to the date() system call is defined in user.h: int date(struct rtcdate *r). Note that the user space code in date.c calls the date() function which is not the actual system call implementation. If user space code was able to call the implementation directly then that would be a violation of the isolation between the kernel and userspace.
+
+The actual implementation of the system call can be found in sysproc.c, under the sys_date() function. How do we get there from the call to date() in date.c? When date.c is linked, date() points to a piece of assembly code that is defined in usys.S. That assembly code stores the index to sys_date() in the eax registry. That's the index into the syscalls array defined in 'syscall.c'. In addition, that piece of assembly also issues an interrupt that forces us to switch over to kernel mode and start executing with different permissions. The interrupt handler eventually lands in syscall(), which as we saw in Part 1 selects the function to call based on the index we just stored in eax. Here's what sys_date() looks like:
+int
+sys_date(void)
+{
+  struct rtcdate *r;
+  if (argptr(0, (char **) &r, sizeof(struct rtcdate)) < 0)
+    return -1;
+  cmostime(r);
+  return 0;
+}
+
+Note that the argument to the function is retrieved using the argptr function in syscall.c. To initiate an xv6 shell prompt, run "make qemu-nox" and then use the "date" command in the shell prompt. The system call tracing code in Part One needs to be commented out before running the shell prompt. Otherwise, the xv6 shell prompt wouldn't show up.
+$ make qemu-nox
+qemu-system-i386 -nographic -drive file=fs.img,index=1,media=disk,format=raw -drive file=xv6.img,index=0,media=disk,format=raw -smp 2 -m 512 
+xv6...
+cpu1: starting
+cpu0: starting
+sb: size 1000 nblocks 941 ninodes 200 nlog 30 logstart 2 inodestart 32 bmap start 58
+init: starting sh
+$ date
+2017-2-28 2:58:40
