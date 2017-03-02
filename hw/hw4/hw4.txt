@@ -1,0 +1,35 @@
+Part One: Eliminate allocation from sbrk()
+
+The modified system call sbrk() is shown as below:
+int
+sys_sbrk(void)
+{
+  int addr;
+  int n;
+
+  if(argint(0, &n) < 0)
+    return -1; 
+  addr = proc->sz;
+  // if(growproc(n) < 0)
+  //   return -1;
+  proc->sz += n;
+  return addr;
+}
+
+After the modification, the xv6 kernel broke when running a system call:
+$ echo hi
+pid 3 sh: trap 14 err 6 on cpu 0 eip 0x111c addr 0x4004--kill proc
+
+It's because when echo tries to access its heap memory it found the mapping between the echo process's address space and the physical address was not built. Then the MMU will generate a hardware interrupt.
+
+Part Two: Lazy allocation
+
+Right above the cprintf that prints the "pid 3 sh: trap 14" message in trap.c, add the code chunk below:
+if (tf->trapno == T_PGFLT) {
+    char *mem = kalloc();
+    memset(mem, 0, PGSIZE);
+    uint a = PGROUNDDOWN(rcr2());
+    mappages(proc->pgdir, (char*)a, PGSIZE, V2P(mem), PTE_W|PTE_U);
+    break;
+}
+
