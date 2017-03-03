@@ -1,0 +1,24 @@
+Homework: xv6 CPU alarm
+
+The following code chunk is added to trap.c to execute the alarm handler:
+// manipulate a process's alarm ticks if there's a process running
+// and if the timer interrupt came from user space
+if (proc && (tf->cs & 3) == 3) {
+  // ticks since last call
+  proc->tickspassed++;
+  // if alarm interval expires
+  if (proc->tickspassed > proc->alarmticks) {
+    // extend trapframe esp by 4 and place the return address
+    // to main in it, to simulate a function call
+    tf->esp -= 4;
+    *(uint *) tf->esp = tf->eip;
+    // overwrite the return address to main in trapframe eip with
+    // the alarm handler address, so that after trap returns it
+    // executes the hanlder instead of going back to main; after the
+    // handler returns, it pops the return address to main to eip
+    tf->eip = (uint) proc->alarmhandler;
+    proc->tickspassed = 0;
+  }
+}
+
+Make other necessary changes for the alarm syscall just like I did for HW3 when adding a date system call to the xv6 kernel. In order to compile the user program alarmtest, add _alarmtest to the UPROGS definition in Makefile.
