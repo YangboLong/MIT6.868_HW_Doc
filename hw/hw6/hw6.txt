@@ -1,0 +1,10 @@
+There is a race condition when an mutex is not used to protect the key insertion:
+    t1 calls insert() on bucket 1: key = 6, i = 6 % NBUCKET = 1, in put()
+    t2 calls insert() on bucket 1: key = 21, i = 21 % NBUCKET = 1, in put()
+    ...
+    t1 sets new list head to be 6: *p = e, in insert()
+    t2 sets new list head to be 21: *p = e, in insert()
+
+Then, the key 6 will be missing from the list, when a key insertion happens on bucket 1 (doesn't matter which thread made the insertion), key = 16 for example. The bucket 1 now look like: 16 -> 21 -> NULL, 6 -> NULL, and the key 6 list will be floating.
+
+Therefore, the key insertion step of one thread must be protected from other threads.
