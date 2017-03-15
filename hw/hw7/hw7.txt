@@ -1,0 +1,15 @@
+Q1: What would happen if the kernel executed the following code snippet:
+    struct spinlock lk;
+    initlock(&lk, "test lock");
+    acquire(&lk);
+    acquire(&lk);
+A1: The kernel will be trapped in an infinite loop in the second acquire() call.
+
+A2: When the kernel panicked, the qemu console prints "cpu with apicid 1: panic: sched locks". By searching for the panic message "sched locks" in kernel.asm, the following assumption in sched() was broken:
+        if(cpu->ncli != 1) panic("sched locks");
+    cpu->ncli indicates the number of locked and released lock pair (number of locks being held), and its value is assumed to be 1 in sched(). However, the kernel has held idelock in iderw() and ptable.lock in yield(), which resulted in two locks being held and therefore the panic message.
+
+A3: It takes much less time to allocate a file structure than reading/writing to IDE. Thus there is less possibility that an interrupt happens between the acquire and release of the ftable.lock.
+
+Q4: Why does release() clear lk->pcs[0] and lk->cpu before clearing lk->locked? Why not wait until after?
+A4: If release() clears lk->pcs[0] and lk->cpu after clearing lk->locked, it's possible another thread acquires lk and overwrites lk's pcs and cpu. That would be fine if nothing went wrong and those fields weren't read. The acquirer overwrites them soon after acquiring the lock. However, if there was a panic between the time the new acquirer got the lock and the time it overwrote those fields, the debugging information of the new thread will be incorrect.
